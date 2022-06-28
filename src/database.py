@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 # creating sqlite
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./hero.db"
 
 engine = create_engine(
 # connect args only in SQLite
