@@ -2,6 +2,8 @@ from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from sqlmodel import Field, Session, SQLModel, create_engine, select
+from fastapi.middleware.cors import CORSMiddleware
+
 
 
 class HeroBase(SQLModel):
@@ -36,6 +38,21 @@ def create_db_and_tables():
 
 
 app = FastAPI()
+
+
+origins = [
+    # "http://localhost/heroes",
+    # "https://localhost.tiangolo.com",
+    # "http://localhost",
+    # "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins='*',
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
