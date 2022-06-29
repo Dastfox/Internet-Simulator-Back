@@ -1,15 +1,15 @@
-from urllib import response
-from fastapi import FastAPI, Depends, HTTPException
-import database as dab
+from fastapi import FastAPI, Depends
+from . import database as dab
 from sqlalchemy.orm import Session
-import models as md
-import schemas as sc
+from . import models as md
+from . import schemas as sc
 
 app = FastAPI()
 
 md.Base.metadata.create_all(bind=dab.engine)
 
-
+# keep the connection all the time is ok cuz its a local file
+# Don't on postgre  
 def get_db():
     try:
         db = dab.SessionLocal()
@@ -17,7 +17,6 @@ def get_db():
     finally:
         db.close()
 
-#redirected to dbord anyway so dunno if necessary
 @app.get("/dashboard")
 async def dashboard(db: Session = Depends(get_db)):
     return db.query(md.Hero).all()
@@ -25,36 +24,31 @@ async def dashboard(db: Session = Depends(get_db)):
 # adding an hero
 @app.post("/heroes")
 async def HeroAdd(hero: sc.Hero, db: Session = Depends(get_db)):
-    
     hero_model = md.Hero()
     hero_model.name = hero.name
-
     db.add(hero_model)
+    db.commit()
+    
+    return hero
+
+# Updating a hero  
+@app.put("/details/{id}")
+async def UpdateHero(id: int, hero: sc.Hero, db: Session = Depends(get_db)):
+
+    heroes = db.query(md.Hero).filter(
+        md.Hero.id == id).first()
+
+    heroes.name = hero.name
+
+    db.add(heroes)
     db.commit()
 
     return hero
-
-@app.patch ("/details/{id}", response_model=sc.HeroRead)
-async def  updateHero (id: int, name: sc.HeroUpdate):
-    with Session as session:
-        db_hero = session.get(sc.Hero, id)
-        if not db_hero:
-            raise HTTPException(status_code=404, detail="Pas de Joueur à ce numéro!")
-        hero_data = name.dict(exclude_unset=True)
-        for key, value in hero_data.items():
-            setattr(db_hero, key, value)
-        session.add(db_hero)
-        session.commit()
-        session.refresh(db_hero)
-        return db_hero
     
-@app.delete("/details/{id}")
-async def delete_hero(id: int):
-    with Session as session:
-        hero = session.get(sc.Hero, id)
-        if not hero:
-            raise HTTPException(status_code=404, detail="Pas de Joueur à ce numéro!")
-        session.delete(hero)
-        session.commit()
-        return {"ok": True}
+@app.delete("/heroes/")
+async def delete_hero(id: int, db: Session = Depends(get_db)):
+        
+        db.query(md.Hero).filter(md.Hero.id==id).delete()
+        db.commit()
+        return {"deleted": True}
     

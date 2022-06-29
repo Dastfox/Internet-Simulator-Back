@@ -2,7 +2,7 @@ from enum import unique
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 
-from database import Base
+from .database import Base
 
 # declaring var in the DB 
 class Hero(Base):

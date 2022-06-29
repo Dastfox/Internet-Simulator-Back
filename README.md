@@ -13,6 +13,6 @@ conda install --force-reinstall -y -q --name FastAPI -c conda-forge --file requi
 conda activate FastAPI
 
 # Launch app
-cd src && start http://localhost:8000 && uvicorn main:app --reload 
+start http://localhost:8000 && uvicorn src.main:app --reload 
 
 

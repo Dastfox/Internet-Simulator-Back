@@ -4,14 +4,14 @@ from pydantic import BaseModel
 class Hero(BaseModel):
     id: int
     name: str
-# pydantic model for crating Hero        
-class HeroAdd(Hero):
-    pass
-# pydantic model for reading hero
-class HeroRead(Hero):
-    id : int
+# # pydantic model for crating Hero        
+# class HeroAdd(Hero):
+#     pass
+# # pydantic model for reading hero
+# class HeroRead(Hero):
+#     id : int
     
-class HeroUpdate(BaseModel):
-    name: str
+# class HeroUpdate(BaseModel):
+#     name: str
     
 
