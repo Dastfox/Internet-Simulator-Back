@@ -1,3 +1,4 @@
+import string
 from typing import List, Optional
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Query
 
 class HeroBase(SQLModel):
     name: str = Field(index=True)
+    image: Optional[str] = Field(default='https://m.media-amazon.com/images/I/51FLAeDVqHL._AC_.jpg')
 
 
 class Hero(HeroBase, table=True):
@@ -24,6 +26,7 @@ class HeroRead(HeroBase):
 
 class HeroUpdate(SQLModel):
     name: Optional[str] = None
+    image: Optional [str] = None
 
 
 sqlite_file_name = "hero.db"
