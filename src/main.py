@@ -1,23 +1,37 @@
 from dataclasses import field
 from email.policy import default
 from typing import List, Optional
-from sqlmodel import Field, Session, SQLModel, select, create_engine, String
+import os as _os
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException, Query
+from sqlmodel import Field, Session, SQLModel, String, create_engine, select
+import random as _random
+import time
+from .services import  upload_image
 
 
+class ImageBase(SQLModel):
+    id: str = Field(primary_key=True, index=True)
+    name: str
+
+
+class ImageModel (ImageBase, table=True):
+    pass
 
 
 class LinkBase (SQLModel):
-    id: str = Field(primary_key = True, index=True)
-    url: str 
+    id: str = Field(primary_key=True, index=True)
+    url: str
 
-class LinkModel (LinkBase, table = True):
+
+class LinkModel (LinkBase, table=True):
     pass
 
 
 class LinkRead (LinkBase):
     url: str
+
 
 sqlite_file_url = "link.db"
 sqlite_url = f"sqlite:///{sqlite_file_url}"
@@ -44,9 +58,6 @@ app.add_middleware(
 )
 
 
-
-
-
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
@@ -71,10 +82,10 @@ def read_links():
 @app.get("/details/{link_id}", response_model=LinkModel)
 def read_link(link_id: str):
     with Session(engine) as session:
-        link = session.get(LinkModel, link_id)
-        if not link:
+        if link := session.get(LinkModel, link_id):
+            return link
+        else:
             raise HTTPException(status_code=404, detail="link not found")
-        return link
 
 
 @app.delete("/details/{link_id}")
@@ -86,7 +97,8 @@ def delete_link(link_id: str):
         session.delete(link)
         session.commit()
         return {"ok": True}
-    
+
+
 @app.patch("/details/{link_id}", response_model=LinkModel)
 def update_link(link_id: str, link: LinkModel):
     with Session(engine) as session:
@@ -100,3 +112,86 @@ def update_link(link_id: str, link: LinkModel):
         session.commit()
         session.refresh(db_link)
         return db_link
+
+
+# ############ Files:
+
+@app.get("/files/all", response_model=List[ImageModel])
+def read_images():
+    with Session(engine) as session:
+        return session.exec(select(ImageModel)).all()
+
+
+
+@app.get("/files", response_class=FileResponse)
+def get_random_file():
+    images = read_images()
+    random_image = _random.choice(images)
+    random_image_name= random_image.name
+    return f"assets/{random_image_name}"
+
+
+@app.get("/files/{image_id}", response_model=ImageModel)
+def read_file_from_id(image_id: str):
+    with Session(engine) as session:
+        if image := session.get(ImageModel, image_id):
+            return image
+        else:
+            raise HTTPException(status_code=404, detail="file not found")
+
+
+@app.post("/files")
+def create_image(image_id: str, image: UploadFile = File(...)):
+    file_name = upload_image(image)
+    imageItem = ImageModel(id=image_id, name=file_name)
+    if file_name is None:
+        return HTTPException(status_code=409, detail='incorrect file type')
+    return upload_image_in_db(imageItem), FileResponse(file_name)
+
+
+def upload_image_in_db(imageItem: ImageModel):
+    with Session(engine) as session:
+        db_image = ImageModel.from_orm(imageItem)
+        session.add(db_image)
+        session.commit()
+        session.refresh(db_image)
+        return db_image
+
+
+
+
+
+@app.delete("/files/{image_id}")
+def delete_file(image_id: str):
+    file = read_file_from_id(image_id)
+    file_name = file.name
+    file_path = f"assets/{file_name}"
+    _os.remove(file_path)
+    with Session(engine) as session:
+        image = session.get(ImageModel, image_id)
+        if not image:
+            raise HTTPException(status_code=404, detail="file not found")
+        session.delete(image)
+        session.commit()
+        return {"ok": True}
+
+
+@app.patch("/files/{image_id}", response_model=ImageModel)
+def update_image(image_id: str, imageUp: UploadFile = File(...)):
+    file = read_file_from_id(image_id)
+    file_name = file.name
+    file_path = f"assets/{file_name}"
+    _os.remove(file_path)
+    upload_image(imageUp)
+    image = ImageModel(id=image_id, name=imageUp.filename)
+    with Session(engine) as session:
+        db_image = session.get(ImageModel, image_id)
+        if not db_image:
+            raise HTTPException(status_code=404, detail="file not found")
+        image_data = image.dict(exclude_unset=True)
+        for key, value in image_data.items():
+            setattr(db_image, key, value)
+        session.add(db_image)
+        session.commit()
+        session.refresh(db_image)
+        return db_image
