@@ -21,4 +21,5 @@ def upload_image(image: UploadFile):
 
 def rename_image(filename: str):
     timestr = time.strftime("%Y%m%d-%H%M%S")
-    return timestr + filename.replace(" ", "-")
+    lastChars = filename[-5:]
+    return timestr + lastChars.replace(" ", "-")

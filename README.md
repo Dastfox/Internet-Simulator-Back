@@ -14,6 +14,6 @@ conda install --force-reinstall -y -q --name env_FastAPI -c conda-forge --file r
 conda activate env_FastAPI
 
 # Launch app
-start http://localhost:8000/docs && uvicorn src.main:app --reload 
+start http://localhost:8000/docs && uvicorn main:app --reload 
 
 

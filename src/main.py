@@ -1,6 +1,7 @@
 from dataclasses import field
 from email.policy import default
-from typing import List, Optional
+from tkinter import Image
+from typing import Any, Dict, List, Optional
 import os as _os
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -9,15 +10,7 @@ from sqlmodel import Field, Session, SQLModel, String, create_engine, select
 import random as _random
 import time
 from .services import  upload_image
-
-
-class ImageBase(SQLModel):
-    id: str = Field(primary_key=True, index=True)
-    name: str
-
-
-class ImageModel (ImageBase, table=True):
-    pass
+import json
 
 
 class LinkBase (SQLModel):
@@ -116,14 +109,27 @@ def update_link(link_id: str, link: LinkModel):
 
 # ############ Files:
 
-@app.get("/files/all", response_model=List[ImageModel])
+class ImageBase(SQLModel):
+    id: str = Field(primary_key=True, index=True)
+    name: str
+
+
+class ImageModel (ImageBase, table=True):
+    pass
+
+class ImageFile (SQLModel):
+    id: str
+    name: str
+    file: UploadFile
+    
+@app.get("/files/", response_model=List[ImageModel])
 def read_images():
     with Session(engine) as session:
         return session.exec(select(ImageModel)).all()
 
 
 
-@app.get("/files", response_class=FileResponse)
+@app.get("/files/rand", response_class=FileResponse)
 def get_random_file():
     images = read_images()
     random_image = _random.choice(images)
@@ -131,7 +137,11 @@ def get_random_file():
     return f"assets/{random_image_name}"
 
 
-@app.get("/files/{image_id}", response_model=ImageModel)
+@app.get("/files/{image_id}", response_class=FileResponse)
+def read_file_path_from_id(image_id: str):
+    filename = read_file_from_id(image_id).name
+    return f"assets/{filename}"
+
 def read_file_from_id(image_id: str):
     with Session(engine) as session:
         if image := session.get(ImageModel, image_id):
@@ -140,10 +150,12 @@ def read_file_from_id(image_id: str):
             raise HTTPException(status_code=404, detail="file not found")
 
 
-@app.post("/files")
-def create_image(image_id: str, image: UploadFile = File(...)):
-    file_name = upload_image(image)
-    imageItem = ImageModel(id=image_id, name=file_name)
+@app.post("/files/")
+def create_image(image_file: ImageFile):
+    # image_file =  
+    print(image_file)
+    file_name = image_file.name
+    imageItem = ImageModel(name=file_name)
     if file_name is None:
         return HTTPException(status_code=409, detail='incorrect file type')
     return upload_image_in_db(imageItem), FileResponse(file_name)
