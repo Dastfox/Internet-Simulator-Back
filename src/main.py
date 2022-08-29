@@ -1,16 +1,18 @@
 from dataclasses import field
 from email.policy import default
+import string
 from tkinter import Image
 from typing import Any, Dict, List, Optional
 import os as _os
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Form
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Field, Session, SQLModel, String, create_engine, select
 import random as _random
 import time
-from .services import  upload_image
+from .services import renameFile, get_a_uuid
 import json
+import uuid
 
 
 class LinkBase (SQLModel):
@@ -117,23 +119,18 @@ class ImageBase(SQLModel):
 class ImageModel (ImageBase, table=True):
     pass
 
-class ImageFile (SQLModel):
-    id: str
-    name: str
-    file: UploadFile
-    
-@app.get("/files/", response_model=List[ImageModel])
+
+@app.get("/files", response_model=List[ImageModel])
 def read_images():
     with Session(engine) as session:
         return session.exec(select(ImageModel)).all()
 
 
-
-@app.get("/files/rand", response_class=FileResponse)
+@app.get("/files/rand/", response_class=FileResponse)
 def get_random_file():
     images = read_images()
     random_image = _random.choice(images)
-    random_image_name= random_image.name
+    random_image_name = random_image.name
     return f"assets/{random_image_name}"
 
 
@@ -141,6 +138,7 @@ def get_random_file():
 def read_file_path_from_id(image_id: str):
     filename = read_file_from_id(image_id).name
     return f"assets/{filename}"
+
 
 def read_file_from_id(image_id: str):
     with Session(engine) as session:
@@ -150,15 +148,17 @@ def read_file_from_id(image_id: str):
             raise HTTPException(status_code=404, detail="file not found")
 
 
-@app.post("/files/")
-def create_image(image_file: ImageFile):
-    # image_file =  
-    print(image_file)
-    file_name = image_file.name
-    imageItem = ImageModel(name=file_name)
+@app.post("/files")
+def create_image(formData: UploadFile = File(...)):
+    id32 = str(uuid.uuid4())
+
+    print('formData', formData.filename)
+    print('id:', id32)
+    file_name = renameFile(formData)
+    imageItem = ImageModel(id=id32, name=file_name)
     if file_name is None:
         return HTTPException(status_code=409, detail='incorrect file type')
-    return upload_image_in_db(imageItem), FileResponse(file_name)
+    return  upload_image_in_db(imageItem),  FileResponse(f"assets/{formData.filename}")
 
 
 def upload_image_in_db(imageItem: ImageModel):
@@ -168,9 +168,6 @@ def upload_image_in_db(imageItem: ImageModel):
         session.commit()
         session.refresh(db_image)
         return db_image
-
-
-
 
 
 @app.delete("/files/{image_id}")
@@ -194,7 +191,7 @@ def update_image(image_id: str, imageUp: UploadFile = File(...)):
     file_name = file.name
     file_path = f"assets/{file_name}"
     _os.remove(file_path)
-    upload_image(imageUp)
+    renameFile(imageUp)
     image = ImageModel(id=image_id, name=imageUp.filename)
     with Session(engine) as session:
         db_image = session.get(ImageModel, image_id)
